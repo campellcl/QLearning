@@ -2,7 +2,7 @@ package util;
 
 import java.util.Scanner;
 
-import solution.MyQLearner;
+import skeleton.MyQLearner;
 
 /**
  * The game class uses an MDP to explore a GridWorld.
@@ -78,8 +78,10 @@ public class Game
 
         GridWorld.display(mdp, null);
         GridCell start = mdp.getCurrent();
-
-        QLearner player = new MyQLearner("Q-Learner");
+        
+        double Ne = 100.0;
+        double Rplus = 0.0;
+        QLearner player = new MyQLearner("Q-Learner", Ne, Rplus);
         // Player player = new HumanPlayer("Human");
 
         double score = 0.0;

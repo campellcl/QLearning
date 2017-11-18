@@ -2,8 +2,9 @@ package util;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 
-import solution.MyState;
+import skeleton.MyState;
 
 /**
  * 
@@ -15,6 +16,7 @@ public abstract class QLearner extends Player
 {
     protected HashMap<State, HashMap<String, Double>> q;
     protected HashMap<State, HashMap<String, Double>> n;
+    private Random rand;
 
     /**
      * The constructor.
@@ -27,6 +29,7 @@ public abstract class QLearner extends Player
         super(name);
         q = new HashMap<State, HashMap<String, Double>>();
         n = new HashMap<State, HashMap<String, Double>>();
+        rand = new Random(1);
     }
 
     /**
@@ -147,19 +150,29 @@ public abstract class QLearner extends Player
      *            the state
      * @param actions
      *            the list of actions
-     * @return the action with highest exploration function
+     * @return the action with highest exploration function, ties are broken randomly
      */
     protected String maxExplorationAction(State state, List<String> actions)
     {
         String maxAction = null;
         double maxF = Double.NEGATIVE_INFINITY;
+        double ties = 1.0;
         for (String action : actions)
         {
             double f = explorationFunction(state, action);
-            if (f > maxF)
+            if (f == maxF)
+            {
+                ties += 1.0;
+                if (rand.nextDouble() < (1.0 / ties)) {
+                    maxF = f;
+                    maxAction = action;
+                }
+            }
+            else if (f > maxF)
             {
                 maxF = f;
                 maxAction = action;
+                ties = 1.0;
             }
         }
         return maxAction;
