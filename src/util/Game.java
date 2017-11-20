@@ -81,7 +81,7 @@ public class Game
         
         double Ne = 100.0;
         double Rplus = 0.0;
-        QLearner player = new MyQLearner("Q-Learner", Ne, Rplus);
+        QLearner player = new MyQLearner("Q-Learner");
         // Player player = new HumanPlayer("Human");
 
         double score = 0.0;
