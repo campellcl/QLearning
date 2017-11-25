@@ -41,7 +41,6 @@ public class MyQLearner extends QLearner
         s = null;
         a = null;
         r = Double.NEGATIVE_INFINITY;
-        
     }
     
     /**
@@ -120,57 +119,68 @@ public class MyQLearner extends QLearner
     	// reward r' is the current reward signal:
     	double rPrime = percept.score();
     	// N[s,a]
-    	HashMap<String,Double> Nsa = n.get(s);
+    	// HashMap<State,HashMap<String,Double>> Nsa = getN();
     	// N[s',a']
-    	HashMap<String,Double> QsaPrime = n.get(sPrime);
+    	// HashMap<String,Double> NsaPrime = Nsa.get(sPrime);
     	// Q[s,a]
-    	HashMap<String,Double> Qsa = q.get(s);
+    	// HashMap<State,HashMap<String,Double>> Qsa = getQ();
     	// Q[s',a']:
-    	HashMap<String,Double> NsaPrime = q.get(sPrime);
+    	// HashMap<String,Double> QsaPrime = Qsa.get(sPrime);
+    	
     	// if TERMINAL?(s') then Q[s',None] <- r'
     	if (sPrime.isTerminal()) {
-    		HashMap<String,Double> actionRewardPair = new HashMap<String,Double>();
-    		actionRewardPair.put(null, rPrime);
-    		this.q.put(s, actionRewardPair);
+    		this.putValue(q, sPrime, null, rPrime);
     	}
     	if (s != null) {
     		// s is not null, increment N[s,a]:
+    		HashMap<String,Double> actionFrequencyPair;
+    		double frequency = Double.MIN_VALUE;
     		try {
+    			actionFrequencyPair = this.n.get(s);
+    			frequency = actionFrequencyPair.get(a);
+    			// increment the observed count by one and reinsert into N:
+    			this.putValue(n, s, a, ++frequency);
+    		} catch (NullPointerException npe) {
     			// The previous state s was never encountered in the frequency table (add it with one observance):
-    			Nsa.put(a, 0.0);
-    		} catch (NullPointerException npe) {
-    			Nsa = new HashMap<String,Double>();
-    			Nsa.put(a, 0.0);
-    			this.n.put(s, Nsa);
+    			this.putValue(n, s, a, 1.0);
     		}
-    		double numTimesVisited = Nsa.get(a);
-    		// increment the observed count by one and reinsert into N:
-    		Nsa.put(a, ++numTimesVisited);
-    		this.n.put(s, Nsa);
     		// get Q[s,a]:
+    		HashMap<String,Double> actionQUtilPair = null;
     		try {
-    			// this Q[s,a] does not exist, init to zero:
-    			Qsa.put(a,  0.0);
+    			actionQUtilPair = this.q.get(s);
+    			if (actionQUtilPair == null) {
+        			// Q[s,a] does not exist yet, add it:
+        			this.putValue(q, s, a, 0.0);
+        			actionQUtilPair = new HashMap<String,Double>();
+        			actionQUtilPair.put(a, 0.0);
+    			}
     		} catch (NullPointerException npe) {
-    			Qsa = new HashMap<String,Double>();
-    			Qsa.put(a, 0.0);
-    			this.q.put(s, Qsa);
+    			// Q[s,a] does not exist yet, add it:
+    			this.putValue(q, s, a, 0.0);
+    			actionQUtilPair = new HashMap<String,Double>();
+    			actionQUtilPair.put(a, 0.0);
     		}
     		// calculate alpha*(N[s,a]) recall this impacts the temporal importance of observed Q utilities:
-    		double updateConstraint = alpha*(numTimesVisited);
+    		double updateConstraint = alpha*(frequency);
     		// compute for every action aPrime: Q[s',a'] - Q[s,a]
     		HashMap<String,Double> actionPrimeDeltaQUtilPair = new HashMap<String,Double>();
     		for (String aPrime : percept.actions()) {
     			// Q[s',a']-Q[s,a]:
+    			HashMap<String,Double> sPrimeQUtilPair;
+    			double sPrimeAPrimeUtil;
     			try {
-    				QsaPrime.put(aPrime, 0.0);
+    				// get Q[s',*]
+    				sPrimeQUtilPair = this.q.get(sPrime);
+    				// get Q[s',a']
+    				sPrimeAPrimeUtil = sPrimeQUtilPair.get(aPrime);
     			} catch (NullPointerException npe) {
-    				QsaPrime = new HashMap<String,Double>();
-    				QsaPrime.put(aPrime, 0.0);
-    				this.q.put(sPrime, QsaPrime);
+    				// Q[s',a'] = (0.0)
+    				this.putValue(q, sPrime, aPrime, 0.0);
+    				sPrimeAPrimeUtil = 0.0;
     			}
-    			double aPrimeQUtil = QsaPrime.get(aPrime);
-    			actionPrimeDeltaQUtilPair.put(aPrime, (aPrimeQUtil - QsaPrime.get(a)));
+    			// Compute Q[s',a']-Q[s,a]
+    			double deltaQUtil = (sPrimeAPrimeUtil - actionQUtilPair.get(a));
+    			actionPrimeDeltaQUtilPair.put(aPrime, deltaQUtil);
     		}
     		// choose the action aPrime that maximizes Q[s',a'] - Q[s,a]:
     		double maxDeltaQUtil = Double.MIN_VALUE;
@@ -187,15 +197,16 @@ public class MyQLearner extends QLearner
     		// first, build the [a,QUtil] pair:
     		HashMap<String,Double> updatedQ = this.q.get(s);
     		// Get the old q value Q[s,a]:
-    		double oldQUtil = Qsa.get(a);
+    		double oldQUtil = actionQUtilPair.get(a);
     		// second update this value with the new QUtil:
     		updatedQ.put(a, (oldQUtil + (updateConstraint * qUtil)));
     		// perform Q[s,a]<- ...
     		this.q.put(s, updatedQ);
     	}
     	s = sPrime;
+    	a = this.maxExplorationAction(sPrime, percept.actions());
     	// source: https://github.com/aimacode/aima-java/blob/AIMA3e/aima-core/src/main/java/aima/core/learning/reinforcement/agent/QLearningAgent.java    	
-    	a = argmaxAPrime(sPrime, percept.actions());
+    	// a = argmaxAPrime(sPrime, percept.actions());
     	r = rPrime;
         return a;
     }
