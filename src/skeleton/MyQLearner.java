@@ -23,7 +23,7 @@ public class MyQLearner extends QLearner
     // NE is a fixed parameter for use in the method explorationFunction. 
     private static final double NE = 100.0;
     // Rplus (R+) is an optimistic estimate of the best possible reward obtainable in any state, which is used in the method explorationFunction.
-    private static final double Rplus = Double.NEGATIVE_INFINITY;
+    private static final double Rplus = 0.0;
     private State s;
     private String a;
     private double r;
@@ -134,7 +134,7 @@ public class MyQLearner extends QLearner
     	if (s != null) {
     		// s is not null, increment N[s,a]:
     		HashMap<String,Double> actionFrequencyPair;
-    		double frequency = Double.MIN_VALUE;
+    		double frequency = 0.0;
     		try {
     			actionFrequencyPair = this.n.get(s);
     			frequency = actionFrequencyPair.get(a);
@@ -142,7 +142,7 @@ public class MyQLearner extends QLearner
     			this.putValue(n, s, a, ++frequency);
     		} catch (NullPointerException npe) {
     			// The previous state s was never encountered in the frequency table (add it with one observance):
-    			this.putValue(n, s, a, 1.0);
+    			this.putValue(n, s, a, ++frequency);
     		}
     		// get Q[s,a]:
     		HashMap<String,Double> actionQUtilPair = null;
@@ -150,13 +150,13 @@ public class MyQLearner extends QLearner
     			actionQUtilPair = this.q.get(s);
     			if (actionQUtilPair == null) {
         			// Q[s,a] does not exist yet, add it:
-        			this.putValue(q, s, a, 0.0);
+        			//this.putValue(q, s, a, 0.0);
         			actionQUtilPair = new HashMap<String,Double>();
         			actionQUtilPair.put(a, 0.0);
     			}
     		} catch (NullPointerException npe) {
     			// Q[s,a] does not exist yet, add it:
-    			this.putValue(q, s, a, 0.0);
+    			//this.putValue(q, s, a, 0.0);
     			actionQUtilPair = new HashMap<String,Double>();
     			actionQUtilPair.put(a, 0.0);
     		}
@@ -179,13 +179,21 @@ public class MyQLearner extends QLearner
     				sPrimeAPrimeUtil = 0.0;
     			}
     			// Compute Q[s',a']-Q[s,a]
-    			double deltaQUtil = (sPrimeAPrimeUtil - actionQUtilPair.get(a));
+    			double Qsa = Double.NaN;
+    			try {
+    				Qsa = actionQUtilPair.get(a);
+    			} catch (NullPointerException npe) {
+    				actionQUtilPair.put(a, 0.0);
+    				Qsa = 0.0;
+    			}
+    			double deltaQUtil = (sPrimeAPrimeUtil - Qsa);
     			actionPrimeDeltaQUtilPair.put(aPrime, deltaQUtil);
     		}
     		// choose the action aPrime that maximizes Q[s',a'] - Q[s,a]:
-    		double maxDeltaQUtil = Double.MIN_VALUE;
+    		double maxDeltaQUtil = Double.NEGATIVE_INFINITY;
     		String bestAPrime = null;
     		for (Map.Entry<String,Double> aPrimeDeltaQUtilPair : actionPrimeDeltaQUtilPair.entrySet()) {
+    			// System.out.printf("aPrimeDeltaQUtilPair %f > maxDeltaQUtil %f\n", aPrimeDeltaQUtilPair.getValue(), maxDeltaQUtil);
     			if (aPrimeDeltaQUtilPair.getValue() > maxDeltaQUtil) {
     				maxDeltaQUtil = aPrimeDeltaQUtilPair.getValue();
     				bestAPrime = aPrimeDeltaQUtilPair.getKey();
@@ -195,19 +203,20 @@ public class MyQLearner extends QLearner
     		double qUtil = r + (percept.gamma()*maxDeltaQUtil);
     		// Caclulate and update Q[s,a]
     		// first, build the [a,QUtil] pair:
-    		HashMap<String,Double> updatedQ = this.q.get(s);
+    		HashMap<String,Double> oldQ = this.q.get(s);
     		// Get the old q value Q[s,a]:
     		double oldQUtil = actionQUtilPair.get(a);
     		// second update this value with the new QUtil:
-    		updatedQ.put(a, (oldQUtil + (updateConstraint * qUtil)));
+    		oldQ.put(a, (oldQUtil + (updateConstraint * qUtil)));
     		// perform Q[s,a]<- ...
-    		this.q.put(s, updatedQ);
+    		this.q.put(s, oldQ);
     	}
     	s = sPrime;
     	a = this.maxExplorationAction(sPrime, percept.actions());
     	// source: https://github.com/aimacode/aima-java/blob/AIMA3e/aima-core/src/main/java/aima/core/learning/reinforcement/agent/QLearningAgent.java    	
     	// a = argmaxAPrime(sPrime, percept.actions());
     	r = rPrime;
+    	//System.out.println(System.identityHashCode(sPrime));
         return a;
     }
 
