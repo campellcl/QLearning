@@ -1,4 +1,4 @@
-package solution;
+package skeleton;
 
 import util.GridCell;
 import util.Percept;

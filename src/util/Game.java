@@ -2,7 +2,7 @@ package util;
 
 import java.util.Scanner;
 
-import solution.MyQLearner;
+import skeleton.MyQLearner;
 
 /**
  * The game class uses an MDP to explore a GridWorld.
@@ -70,7 +70,9 @@ public class Game
     public static void main(String[] args)
     {
         final int NUM_TRIALS = 1000000;
-        final int DISPLAY_EVERY = 1000;
+        //final int NUM_TRIALS = 1000;
+    	final int DISPLAY_EVERY = 1000;
+        //final int DISPLAY_EVERY = 100;
         String world =
             GridWorld.createRandomGridWorld(10, 10, 0, 2, 10, 1, 1.0, 1L);
         MarkovDecisionProcess mdp =
@@ -78,13 +80,16 @@ public class Game
 
         GridWorld.display(mdp, null);
         GridCell start = mdp.getCurrent();
-
+        
+        double Ne = 100.0;
+        double Rplus = 0.0;
         QLearner player = new MyQLearner("Q-Learner");
         // Player player = new HumanPlayer("Human");
 
         double score = 0.0;
         for (int i = 1; i <= NUM_TRIALS; i++)
         {
+        	//System.out.printf("Playing Game: %d\n", i);
             mdp.setCurrent(start);
             Game game = new Game(mdp, player);
             score += (game.play() - score) / i;

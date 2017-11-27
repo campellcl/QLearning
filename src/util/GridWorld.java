@@ -120,10 +120,12 @@ public class GridWorld
     private static void sampleUncertainty()
     {
         directionUncertainty = new double[4];
-        directionUncertainty[0] = (6.0 / 10.0) + (Math.random() * (4.0 / 10.0));
+        directionUncertainty[0] = (6.0 / 10.0) + (rand.nextDouble() * (4.0 / 10.0));
         directionUncertainty[1] = (1.0 - directionUncertainty[0]) / 2.0;
         directionUncertainty[3] = (1.0 - directionUncertainty[0]) / 2.0;
         directionUncertainty[2] = 0.0;
+        System.out.println(directionUncertainty[0]);
+        System.out.println(directionUncertainty[1]);
 
     }
 
