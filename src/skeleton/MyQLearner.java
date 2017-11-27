@@ -19,7 +19,7 @@ import javafx.util.Pair;
  */
 public class MyQLearner extends QLearner
 {
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
     // NE is a fixed parameter for use in the method explorationFunction. 
     private static final double NE = 100.0;
     // Rplus (R+) is an optimistic estimate of the best possible reward obtainable in any state, which is used in the method explorationFunction.
@@ -55,51 +55,12 @@ public class MyQLearner extends QLearner
     @Override
     protected double explorationFunction(State state, String action)
     {
-    	// The utility of being in state s' and executing action a' is Q[s',a']:
-    	HashMap<String,Double> QsaPrime = this.q.get(state);
-    	// The number of times the state action pair s','a has been encountered is N[s',a']
-    	HashMap<String,Double> NsaPrime = this.n.get(state);
-    	// u is the currently estimated utility (QUtility) of state s'. 
-    	double u;
-    	try {
-    		u = QsaPrime.get(action);
-    	} catch (NullPointerException npe) {
-    		// u == null
+    	Double Qsa = this.value(q, state, action);
+    	Double Nsa = this.value(n, state, action);
+    	if (Qsa == null || Nsa < this.NE) {
     		return Rplus;
     	}
-    	// n is the number of times the state-action pair [s',a'] has been encountered.
-    	double n;
-    	try {
-    		n = NsaPrime.get(action);
-    	} catch (NullPointerException npe) {
-    		return Rplus;
-    	}
-    	// if n < NE:
-    	if (n < NE) {
-    		return Rplus;
-    	} else {
-    		return u;
-    	}
-    }
-    
-    /**
-     * argmaxAPrime - Returns the action that maximizes the explorationValue (function f).
-     * @param sPrime - The current state s'.
-     * @param aPrimes - The list of actions available in the current state a'.
-     * @return action - The action that maximizes the exploration function f(action in {a'}).
-     */
-    private String argmaxAPrime(State sPrime, List<String> aPrimes) {
-    	String action = "N";
-    	double maxExplorationValue = Double.NEGATIVE_INFINITY;
-    	for (String aPrime : aPrimes) {
-    		// get the count N[s',a']:
-    		double explorationValue = explorationFunction(sPrime, aPrime);
-    		if (explorationValue > maxExplorationValue) {
-    			maxExplorationValue = explorationValue;
-    			action = aPrime;
-    		}
-    	}
-    	return action;
+    	return Qsa;
     }
     
     /**
@@ -113,111 +74,41 @@ public class MyQLearner extends QLearner
     {
     	//define the constant alpha (impacting the temporal importance of observed Q utilities):
     	//TODO Dynamically get the number of states in the world (it happens to be 100 in this example (10x10)):
-    	double alpha = 1/NE;
+    	double alpha = 1.0/NE;
     	// state s' is the current state:
     	State sPrime = new MyState(percept);
     	// reward r' is the current reward signal:
     	double rPrime = percept.score();
-    	// N[s,a]
-    	// HashMap<State,HashMap<String,Double>> Nsa = getN();
-    	// N[s',a']
-    	// HashMap<String,Double> NsaPrime = Nsa.get(sPrime);
-    	// Q[s,a]
-    	// HashMap<State,HashMap<String,Double>> Qsa = getQ();
-    	// Q[s',a']:
-    	// HashMap<String,Double> QsaPrime = Qsa.get(sPrime);
-    	
+    	double gamma = percept.gamma();
     	// if TERMINAL?(s') then Q[s',None] <- r'
     	if (sPrime.isTerminal()) {
     		this.putValue(q, sPrime, null, rPrime);
     	}
     	if (s != null) {
     		// s is not null, increment N[s,a]:
-    		HashMap<String,Double> actionFrequencyPair;
-    		double frequency = 0.0;
-    		try {
-    			actionFrequencyPair = this.n.get(s);
-    			frequency = actionFrequencyPair.get(a);
-    			// increment the observed count by one and reinsert into N:
-    			this.putValue(n, s, a, ++frequency);
-    		} catch (NullPointerException npe) {
-    			// The previous state s was never encountered in the frequency table (add it with one observance):
-    			this.putValue(n, s, a, ++frequency);
-    		}
+    		this.addValue(n, s, a, 1.0);
     		// get Q[s,a]:
-    		HashMap<String,Double> actionQUtilPair = null;
-    		try {
-    			actionQUtilPair = this.q.get(s);
-    			if (actionQUtilPair == null) {
-        			// Q[s,a] does not exist yet, add it:
-        			//this.putValue(q, s, a, 0.0);
-        			actionQUtilPair = new HashMap<String,Double>();
-        			actionQUtilPair.put(a, 0.0);
-    			}
-    		} catch (NullPointerException npe) {
-    			// Q[s,a] does not exist yet, add it:
-    			//this.putValue(q, s, a, 0.0);
-    			actionQUtilPair = new HashMap<String,Double>();
-    			actionQUtilPair.put(a, 0.0);
-    		}
-    		// calculate alpha*(N[s,a]) recall this impacts the temporal importance of observed Q utilities:
-    		double updateConstraint = alpha*(frequency);
-    		// compute for every action aPrime: Q[s',a'] - Q[s,a]
-    		HashMap<String,Double> actionPrimeDeltaQUtilPair = new HashMap<String,Double>();
-    		for (String aPrime : percept.actions()) {
-    			// Q[s',a']-Q[s,a]:
-    			HashMap<String,Double> sPrimeQUtilPair;
-    			double sPrimeAPrimeUtil;
-    			try {
-    				// get Q[s',*]
-    				sPrimeQUtilPair = this.q.get(sPrime);
-    				// get Q[s',a']
-    				sPrimeAPrimeUtil = sPrimeQUtilPair.get(aPrime);
-    			} catch (NullPointerException npe) {
-    				// Q[s',a'] = (0.0)
-    				this.putValue(q, sPrime, aPrime, 0.0);
-    				sPrimeAPrimeUtil = 0.0;
-    			}
-    			// Compute Q[s',a']-Q[s,a]
-    			double Qsa = Double.NaN;
-    			try {
-    				Qsa = actionQUtilPair.get(a);
-    			} catch (NullPointerException npe) {
-    				actionQUtilPair.put(a, 0.0);
-    				Qsa = 0.0;
-    			}
-    			double deltaQUtil = (sPrimeAPrimeUtil - Qsa);
-    			actionPrimeDeltaQUtilPair.put(aPrime, deltaQUtil);
-    		}
-    		// choose the action aPrime that maximizes Q[s',a'] - Q[s,a]:
-    		double maxDeltaQUtil = Double.NEGATIVE_INFINITY;
-    		String bestAPrime = null;
-    		for (Map.Entry<String,Double> aPrimeDeltaQUtilPair : actionPrimeDeltaQUtilPair.entrySet()) {
-    			// System.out.printf("aPrimeDeltaQUtilPair %f > maxDeltaQUtil %f\n", aPrimeDeltaQUtilPair.getValue(), maxDeltaQUtil);
-    			if (aPrimeDeltaQUtilPair.getValue() > maxDeltaQUtil) {
-    				maxDeltaQUtil = aPrimeDeltaQUtilPair.getValue();
-    				bestAPrime = aPrimeDeltaQUtilPair.getKey();
-    			}
-    		}
-    		// get the final Q-Util of the state:
-    		double qUtil = r + (percept.gamma()*maxDeltaQUtil);
-    		// Caclulate and update Q[s,a]
-    		// first, build the [a,QUtil] pair:
-    		HashMap<String,Double> oldQ = this.q.get(s);
-    		// Get the old q value Q[s,a]:
-    		double oldQUtil = actionQUtilPair.get(a);
-    		// second update this value with the new QUtil:
-    		oldQ.put(a, (oldQUtil + (updateConstraint * qUtil)));
-    		// perform Q[s,a]<- ...
-    		this.q.put(s, oldQ);
+    		Double Q_sa = this.value(q, s, a);
+    		// get Q[s',a']
+    		Double QPrime_sa = this.value(q, sPrime, this.maxAction(sPrime, percept.actions()));
+    		// get Q[s',a']-Q[s,a]:
+    		Double deltaQUtil = QPrime_sa - Q_sa;
+    		// update the deltaQUtil
+    		deltaQUtil = (r + (gamma * deltaQUtil));
+    		this.putValue(q, s, a, 
+    				((alpha * this.value(n, s, a))*deltaQUtil));
+  
     	}
     	s = sPrime;
     	a = this.maxExplorationAction(sPrime, percept.actions());
     	// source: https://github.com/aimacode/aima-java/blob/AIMA3e/aima-core/src/main/java/aima/core/learning/reinforcement/agent/QLearningAgent.java    	
-    	// a = argmaxAPrime(sPrime, percept.actions());
     	r = rPrime;
     	//System.out.println(System.identityHashCode(sPrime));
-        return a;
+    	//System.out.printf("N: %s\n", this.n);
+    	//System.out.printf("Q: %s\n", this.q);
+    	//System.out.printf("Q: %s \n N: %s",this.q, this.n);
+    	return a;
+        
     }
 
 }
