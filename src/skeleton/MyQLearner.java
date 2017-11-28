@@ -91,7 +91,7 @@ public class MyQLearner extends QLearner
     	if (s != null) {
     		// s is not null, increment N[s,a]:
     		this.addValue(n, s, a, 1.0);
-    		double alpha = 1.0/value(getN(),s,a);
+    		double alpha = 1.0/(value(getN(),s,a) + 1);
     		// get Q[s,a]:
     		Double Q_sa = this.value(q, s, a);
     		// get Q[s',a']
